@@ -22,8 +22,8 @@ data "aws_availability_zones" "available" {}
 # ----------- Local Variables -----------
 
 locals {
-  # Use the first 2 AZs in the selected AWS region
-  azs = slice(data.aws_availability_zones.available.names, 0, 2)
+  # Use provided AZs if set; otherwise first 2 AZs in the region
+  azs = var.azs != null ? var.azs : slice(data.aws_availability_zones.available.names, 0, 2)
 
   # cidrsubnet(var.vpc_cidr, 8, i)
   # cidrsubnet splits a bigger CIDR into smaller ones.
@@ -47,17 +47,15 @@ locals {
     # i = 1 → cidrsubnet("10.10.0.0/16", 8, 1) → "10.10.1.0/24"
 
   # Dynamically calculate CIDR blocks for public subnets
-  public_subnet_cidrs  = [for i in range(length(local.azs)) : cidrsubnet(var.vpc_cidr, 8, i)]
+  public_subnet_cidrs  = var.public_subnet_cidrs  != null ? var.public_subnet_cidrs  : [for i in range(length(local.azs)) : cidrsubnet(var.vpc_cidr, 8, i)]
 
   # Dynamically calculate CIDR blocks for private subnets
-  private_subnet_cidrs = [for i in range(length(local.azs)) : cidrsubnet(var.vpc_cidr, 8, i + 10)]
+  private_subnet_cidrs = var.private_subnet_cidrs != null ? var.private_subnet_cidrs : [for i in range(length(local.azs)) : cidrsubnet(var.vpc_cidr, 8, i + 10)]
 
-  # Base tags to apply to all resources
-  base_tags = {
-    owner       = var.owner
-    environment = var.environment
-    project     = var.project
-  }
+  base_tags = merge(
+    { owner = var.owner, environment = var.environment, project = var.project },
+    var.tags
+  )
 }
 
 # ----------- VPC -----------
